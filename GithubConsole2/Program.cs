@@ -11,6 +11,9 @@ namespace GithubConsole2
         static void Main(string[] args)
         {
             Console.WriteLine("Hello Git,I love you!");
+
+
+            Console.Read();
         }
     }
 }
