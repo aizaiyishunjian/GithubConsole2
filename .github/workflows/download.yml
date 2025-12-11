@@ -1,0 +1,30 @@
+name: Download Docker Image to Tar
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: 'vllm/vllm-openai:v0.12.0'
+        required: true
+        default: 'vllm/vllm-openai:v0.12.0'
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull Image
+        run: docker pull ${{ inputs.image_name }}
+
+      - name: Save Image to Tar
+        run: |
+          # 将镜像名中的斜杠替换为下划线，防止文件名错误
+          FILENAME=$(echo ${{ inputs.image_name }} | tr '/' '_' | tr ':' '_').tar
+          docker save -o $FILENAME ${{ inputs.image_name }}
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: ${{ env.FILENAME }}
+          retention-days: 1
