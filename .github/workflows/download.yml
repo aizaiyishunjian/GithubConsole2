@@ -12,16 +12,37 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
+      # 1. 新增：清理磁盘空间
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space-action@v1.3.1
+        with:
+          # 删除预装的大型工具包
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true # 删除交换分区以释放空间
+      
+      # 2. 检查空间（可选，让你看看清理后有多少空间）
+      - name: Check Disk Space
+        run: df -h
+
+      # 3. 拉取镜像
       - name: Pull Image
         run: docker pull ${{ inputs.image_name }}
 
+      # 4. 打包保存
       - name: Save Image to Tar
         run: |
-          # 将镜像名中的斜杠替换为下划线，防止文件名错误
+          # 替换文件名中的特殊字符
           FILENAME=$(echo ${{ inputs.image_name }} | tr '/' '_' | tr ':' '_').tar
+          echo "正在打包: $FILENAME ..."
           docker save -o $FILENAME ${{ inputs.image_name }}
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
 
+      # 5. 上传结果
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
