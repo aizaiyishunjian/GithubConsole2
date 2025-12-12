@@ -36,7 +36,23 @@ jobs:
           
           # 解释：skopeo copy 支持写入 /dev/stdout，然后直接 gzip，最后写入硬盘
           # 这样磁盘上永远不会出现那个巨大的未压缩 tar 包
-          skopeo copy docker://${{ inputs.image_name }} docker-archive:/dev/stdout | gzip > $FILENAME
+          skopeo copy \
+            --src-tls-verify=false \
+            docker://${{ inputs.image_name }} \
+            docker-archive:/dev/stdout \
+            2> /dev/null \
+            | gzip > $FILENAME
+          
+          echo "打包完成，文件大小检查:"
+          ls -lh $FILENAME
+          
+          # 安全检查：如果文件太小(比如小于1K)，说明下载失败了(因为日志被屏蔽了看不到报错)
+          # 这里加一个简单的判断
+          FILESIZE=$(stat -c%s "$FILENAME")
+          if [ $FILESIZE -lt 1024 ]; then
+            echo "错误：生成的镜像文件过小，可能下载失败。"
+            exit 1
+          fi
           
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
           ls -lh $FILENAME
