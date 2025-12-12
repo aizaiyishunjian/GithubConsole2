@@ -1,0 +1,50 @@
+name: Stream Download Large Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: '镜像名称'
+        required: true
+        default: 'vllm/vllm-openai:v0.12.0'
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 依然要清理空间，寸土寸金
+      - name: Maximize Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo docker system prune -a -f
+
+      # 2. 安装 Skopeo
+      - name: Install Skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      # 3. 【核心黑科技】流式下载
+      # 不运行 docker pull (省去30GB空间)
+      # 直接用 skopeo 下载并通管道传给 gzip 压缩
+      - name: Stream Download and Compress
+        run: |
+          FILENAME=$(echo ${{ inputs.image_name }} | tr '/' '_' | tr ':' '_').tar.gz
+          echo "正在流式下载并压缩: $FILENAME ..."
+          
+          # 解释：skopeo copy 支持写入 /dev/stdout，然后直接 gzip，最后写入硬盘
+          # 这样磁盘上永远不会出现那个巨大的未压缩 tar 包
+          skopeo copy docker://${{ inputs.image_name }} docker-archive:/dev/stdout | gzip > $FILENAME
+          
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+          ls -lh $FILENAME
+
+      # 4. 上传
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: ${{ env.FILENAME }}
+          retention-days: 1
