@@ -12,28 +12,35 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      # 1. 新增：清理磁盘空间
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space-action@v1.3.1
-        with:
-          # 删除预装的大型工具包
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true # 删除交换分区以释放空间
-      
-      # 2. 检查空间（可选，让你看看清理后有多少空间）
-      - name: Check Disk Space
-        run: df -h
+      # 1. 手动清理磁盘空间 (不依赖插件，更稳定)
+      - name: Free Disk Space (Manual)
+        run: |
+          echo "清理前空间:"
+          df -h
+          
+          # 删除 .NET 运行环境 (约 1.5GB)
+          sudo rm -rf /usr/share/dotnet
+          
+          # 删除 Android 开发环境 (约 10GB+)
+          sudo rm -rf /usr/local/lib/android
+          
+          # 删除 Haskell 语言环境 (约 2GB)
+          sudo rm -rf /opt/ghc
+          
+          # 删除 CodeQL 分析工具 (约 2GB)
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          
+          # 清理 Docker 缓存 (删除预装的镜像)
+          sudo docker system prune -a -f
+          
+          echo "清理后空间:"
+          df -h
 
-      # 3. 拉取镜像
+      # 2. 拉取镜像
       - name: Pull Image
         run: docker pull ${{ inputs.image_name }}
 
-      # 4. 打包保存
+      # 3. 打包保存
       - name: Save Image to Tar
         run: |
           # 替换文件名中的特殊字符
@@ -42,7 +49,7 @@ jobs:
           docker save -o $FILENAME ${{ inputs.image_name }}
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
 
-      # 5. 上传结果
+      # 4. 上传结果
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
